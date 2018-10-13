@@ -1,0 +1,95 @@
+---
+title: "PML-Assignment"
+author: "DrM"
+date: "October 13, 2018"
+output: html_document
+---
+###Study of Characteristics of Correct and Incorrect Ways to Perform Dumbbell Biceps Curls
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+
+#### Load in appropriate libraries, read the data, label blanks and "#DIV/0!" characters as NA, and remove columns with NA values. 
+
+```{r, ECHO=FALSE}
+#Load libraries
+library(lattice)
+library(ggplot2)
+library(dplyr)
+library(caret)
+set.seed(1234)
+
+#Read in 2 data files:
+training <- read.csv("pml-training.csv", na.strings=c("NA","","#DIV/0!"))
+test_cases <- read.csv("pml-testing.csv", na.strings=c("NA","","#DIV/0!"))
+
+# Remove columns that contain NA data
+training <- training[,colSums(is.na(training))==0]
+test_cases<- test_cases[,colSums(is.na(test_cases))==0]
+```
+
+####Next, remove the first 7 columns (that do not contain data). Then segment the large training file into a training set (training_set) and a test set (test_set) as a 70/30 split.
+
+```{r, ECHO=FALSE}
+#Remove first 7 columns that do not contain activity data
+training <- training[,-c(1:7)]
+test_cases <- test_cases[,-c(1:7)]
+
+# Segment training set
+inTrain <- createDataPartition(training$classe, p=0.7, list=FALSE)
+training_set <- training[inTrain,]
+test_set <- training[-inTrain,]
+```
+
+###Use 3 different models on the training_set data: Recursive Partitioning (rpart), Random Forests (RF), and Generalized Boosted Model (gbm).
+
+```{r, ECHO=FALSE}
+
+#Apply models
+tr <- trainControl(method = "repeatedcv",number = 20)
+rpart_mod <- train(classe~., data=training_set, method="rpart")
+rf_mod <- train(classe~., data=training_set, method="rf", ntree=10)
+gbm_mod <- train(classe~., data=training_set, method="gbm", verbose=FALSE, trControl=tr)
+```
+
+### Now apply each model to the test_set data, and calculate a confusion matrix.  Print the accuracies for each model.
+
+```{r, ECHO=FALSE}
+
+rpart_pred <- predict(rpart_mod,newdata=test_set)
+rpart_cm <- confusionMatrix(rpart_pred,test_set$classe)
+rpart_cm
+
+rf_pred <- predict(rf_mod,newdata=test_set)
+rf_cm <- confusionMatrix(rf_pred, test_set$classe)
+rf_cm
+
+gbm_pred <- predict(gbm_mod,newdata=test_set)
+gbm_cm <- confusionMatrix(gbm_pred, test_set$classe)
+gbm_cm
+
+print(c(rpart_cm$overall[1], rf_cm$overall[1], gbm_cm$overall[1]))
+
+```
+
+### The random forest model has the highest accuracy of these 3. 
+
+#### These are the 20 most important variables in the random forest model:
+
+```{r, ECHO=FALSE}
+varImp(rf_mod)
+
+```
+
+### Use the random forest model on the downloaded test data set, and use it to predict the Validation Set.
+
+```{r, ECHO=FALSE}
+
+casesPrediction <- predict(rf_mod, newdata = test_cases)
+casesPrediction
+
+```
+
+## Acknowledgement
+This dataset is licensed under the Creative Commons license (CC BY-SA).
+
+Read more: http://groupware.les.inf.puc-rio.br/har#ixzz5TpxtNLwa
+http://groupware.les.inf.puc-rio.br/har
